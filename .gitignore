@@ -1,0 +1,7 @@
+.DS_Store
+
+__pycache__/*
+
+trained_clfs/*
+
+uci_har_dataset/*
