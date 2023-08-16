@@ -59,9 +59,7 @@ accurately estimate the accuracy that would be achieved on a never-before-seen s
 
 #### 5.1 Multinomial logistic regression (MLR) 
 
-**Method** MLR generalizes logistic regression to multi-class classification tasks.
-
-**Experiments** We performed two sets of experiments using MLR. In the first experiment, we used MLR after first 
+We performed two sets of experiments using MLR. In the first experiment, we used MLR after first 
 reducing the dimensionality of the data set using PCA. In this experiment, the two parameters we tuned were the 
 extent of dimensionality reduction as well as the L2 regularization parameter in MLR. We found that reducing the 
 dimensionality of our data with PCA prior to fitting the model did not improve classification accuracy.
@@ -73,36 +71,32 @@ regularization.
 
 #### 5.1 Linear discriminant analysis (LDA)
 
-**Method** LDA assumes that each class is drawn from a multivariate Gaussian distribution, where the means of each 
+LDA assumes that each class is drawn from a multivariate Gaussian distribution, where the means of each 
 feature are specific to the class, but the covariance matrix is shared across all classes. Because the covariance 
-matrix is shared across classes, the decision boundary is linear.
-
-**Experiments** When forming the LDA model, shrinkage can be applied to the estimation of the covariance matrix. 
-The shrinkage parameter scales the estimate of the covariance between different features. If the shrinkage parameter 
-is set equal to 1, the covariance matrix will be diagonal and all features will be assumed to be uncorrelated. 
-In contrast, if the shrinkage parameter is 0, the covariance matrix will equal the empirically calculated 
-covariance matrix. Practically speaking, shrinkage is helpful when there are a limited number of observations. 
+matrix is shared across classes, the decision boundary is linear. 
+When forming the LDA model, shrinkage can be applied to the estimation of the covariance matrix to avoid overfitting. 
+Practically speaking, shrinkage is helpful when there are a limited number of observations. 
 However, given that the number of observations in the data set is much greater than the number of features (n >> p), 
-shrinkage did not improve model accuracy. Additionally, experiments were also performed where the LDA model was 
+shrinkage did not improve model accuracy. 
+
+Additionally, experiments were also performed where the LDA model was 
 fit after reducing the dimensionality of the data set using PCA. However, similar to MLR, LDA performs worse 
 when PCA is applied to reduce the data's dimensionality.
 
 #### 5.2 Support vector machine (SVM)
 
-**Method** SVM aims to find hyperplanes that can best divide data by their labels. A kernel is often applied to 
-transform the data. Here, we used the RBF kernel. We experimented with various regularization strengths (*C*). We 
-achieved a 94.29% CV accuracy with *C* equalling 166.8.
+SVM aims to find hyperplanes that can best divide data by their labels. A kernel is often applied to 
+transform the data. Here, we used the RBF kernel and experiment with different levels of regularization.
 
 #### 5.3 Random Forest
 
-**Method** Random forests ensemble multiple decisions trees trained in parallel with bagging. Bagging allows 
+Random forests ensemble multiple decisions trees trained in parallel with bagging. Bagging allows 
 individual trees to be trained on subsets of training data that are randomly sampled with replacement. For any given 
 tree, when deciding which feature to split on, we pick the one that decreases Gini impurity the most. 
 
 Bagging, along with the fact that at each split only a random subset of features are considered, helps reduce the 
 model variance. This tends to make random forests significantly more accurate than decision trees.
 
-**Experiments** We tuned three different hyperparameters and obtained a CV accuracy of 91.58%.
 
 ### 6 Results and discussion
 
