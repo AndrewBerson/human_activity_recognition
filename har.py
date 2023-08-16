@@ -1,29 +1,22 @@
 from collections import namedtuple
-import matplotlib
-import matplotlib.pyplot as plt
 import numpy as np
-import numpy.typing as npt
 import pandas as pd
 from pathlib import Path
-import seaborn as sns
+import pickle
 from sklearn.decomposition import PCA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
-from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import PredefinedSplit
-from sklearn.model_selection import RandomizedSearchCV
-from sklearn.model_selection import train_test_split
-from sklearn.naive_bayes import GaussianNB
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
-from sklearn.tree import DecisionTreeClassifier
 from typing import Union, Tuple, List
 
 
+# Named tuple to hold each classifier
 Classifier = namedtuple(
     "Classifier",
     ["full_name", "short_name", "search_obj"],
@@ -31,7 +24,8 @@ Classifier = namedtuple(
 
 
 def main():
-    # load training data & names of target and features
+    # load training data, name of target column, name of feature cols,
+    # and df linking targets to their english labels (as opposed to numbers)
     df_train, target, features, target_labels = load_data(
         subject_path=Path("uci_har_dataset/train/subject_train.txt"),
         features_path=Path("uci_har_dataset/features.txt"),
@@ -57,7 +51,7 @@ def main():
     )
 
     # form classifiers
-    clfs = form_classifiers(ps=ps, random_state=123, limited_params=True)
+    clfs = form_classifiers(ps=ps, random_state=None, limited_params=False)
 
     # train classifiers
     clfs = train_classifiers(
@@ -67,137 +61,44 @@ def main():
         clfs=clfs,
     )
 
-    form_confusion_matrices(
-        clfs,
-        df_train,
-        "subject",
-        features,
-        target,
-        target_labels,
-    )
+    # save trained classifiers locally
+    dump_classifiers(clfs, Path("trained_clfs"))
+
+    # choose best classifier from best CV score and evaluate test accuracy
+    choose_clf_and_eval_test_score(clfs, df_test, target, features)
 
 
-def form_confusion_matrices(
-    clfs, df_train, grouping_col, features, target, target_labels
-):
-    for clf in clfs:
-        est = clf.search_obj.estimator
-        est.set_params(**clf.search_obj.best_params_)
-
-        df_train, _ = define_cv_folds(df_train, grouping_col, cross_val=True, nfolds=5)
-
-        cv_confusion_matrix = np.zeros(
-            shape=(len(df_train[target].unique()), len(df_train[target].unique()))
-        )
-
-        for fold in df_train[grouping_col].unique():
-            validation_set = df_train[df_train[grouping_col] == fold].copy()
-            training_set = df_train[df_train[grouping_col] != fold].copy()
-
-            est.fit(training_set[features], training_set[target])
-            val_preds = est.predict(validation_set[features])
-
-            cv_confusion_matrix = cv_confusion_matrix + confusion_matrix(
-                validation_set[target].ravel(), val_preds
-            )
-
-        create_confusion_maxtrix_figure(
-            cv_confusion_matrix, target_labels.iloc[:, 1].tolist(), clf
-        )
-
-
-def add_precision_and_recall_to_matrix(confusion, class_labels):
-    df_confusion = pd.DataFrame(confusion, columns=class_labels, index=class_labels)
-
-    precision = pd.Series(
-        np.diag(df_confusion) / df_confusion.sum(axis=1), name="Precision"
-    )
-    recall = pd.Series(np.diag(df_confusion) / df_confusion.sum(axis=0), name="Recall")
-
-    df_confusion = pd.concat([df_confusion, precision], axis=1)
-    df_confusion = pd.concat([df_confusion, pd.DataFrame(recall).transpose()], axis=0)
-
-    return df_confusion
-
-
-def create_graph_masks(n):
-
-    # create boolean mask so that bad prediction have different color scheme than good predictions
-    # note: mask applies to True values (not False)
-    wrong_pred_mask = np.eye(n, dtype=bool)
-    correct_pred_mask = ~wrong_pred_mask
-
-    # last row and column (precision and recall) also need to be masked
-    correct_pred_mask[n - 1, :] = True
-    correct_pred_mask[:, n - 1] = True
-    wrong_pred_mask[n - 1, :] = True
-    wrong_pred_mask[:, n - 1] = True
-
-    # create boolean masks for different color scheme for precision and recall
-    prec_rec_mask = np.ones((n, n), dtype=bool)
-    prec_rec_mask[n - 1, :] = False
-    prec_rec_mask[:, n - 1] = False
-
-    return wrong_pred_mask, correct_pred_mask, prec_rec_mask
-
-
-def create_confusion_maxtrix_figure(
-    confusion: npt.NDArray,
-    class_labels: list,
-    clf: Classifier,
+def choose_clf_and_eval_test_score(
+    clfs: List[Classifier],
+    df_test: pd.DataFrame,
+    target: str,
+    features: List[str],
 ) -> None:
+    """
+    Choose best classifier based on best CV score and evaluate test accuracy
+    :param clfs: list of Classifiers
+    :param df_test: test data
+    :param target: name of target column
+    :param features: name of feature columns
+    :return: None
+    """
 
-    accuracy = np.sum(np.eye(confusion.shape[0]) * confusion) / np.sum(confusion)
-    df_confusion = add_precision_and_recall_to_matrix(confusion, class_labels)
-    wrong_pred_mask, correct_pred_mask, prec_rec_mask = create_graph_masks(
-        df_confusion.shape[0]
-    )
+    # find best classifier
+    best_clf = clfs[0]
+    best_score = clfs[0].search_obj.best_score_
+    for clf in clfs[1:]:
+        if best_score < clf.search_obj.best_score_:
+            best_clf = clf
+            best_score = clf.search_obj.best_score_
 
-    fig = plt.figure(figsize=(8, 8))
-    fig.add_subplot(1, 1, 1)
+    # evaluate test accuracy for best classifier
+    test_preds = best_clf.search_obj.best_estimator_.predict(df_test[features])
+    test_acc = accuracy_score(df_test[target].ravel(), test_preds)
 
-    # plot correct predictions (diagonal elements)
-    sns.heatmap(
-        df_confusion,
-        mask=correct_pred_mask,
-        cbar=False,
-        annot=True,
-        cmap=matplotlib.colors.ListedColormap(["tab:blue"]),
-    )
-
-    # plot wrong predictions (off-diagonal elements)
-    sns.heatmap(df_confusion, cbar=False, annot=True, mask=wrong_pred_mask, cmap="OrRd")
-
-    # plot precision and recall (last row and last col)
-    sns.heatmap(
-        df_confusion,
-        cbar=False,
-        annot=True,
-        mask=prec_rec_mask,
-        cmap="RdYlGn",
-        fmt=".1%",
-    )
-
-    plt.ylabel("True Class")
-    plt.xlabel(f"\n\nCV Accuracy = {100 * accuracy:.2f}%")
-
-    # move class labels to top of graph
-    plt.tick_params(
-        axis="x",
-        which="major",
-        bottom=False,
-        top=False,
-        labelbottom=False,
-        labeltop=True,
-        labelrotation=90,
-    )
-
-    plt.title(clf.full_name)
-    plt.tight_layout()
-
-    fig_path = Path("figures/")
-    fig_path.mkdir(parents=True, exist_ok=True)
-    plt.savefig(fig_path / f"{clf.short_name}_confusion.png")
+    # report results
+    print(f"Best model: {best_clf.full_name}")
+    print(f"Best parameters: {best_clf.search_obj.best_params_}")
+    print(f"Test accuracy = {test_acc * 100:.2f}%")
 
 
 def load_data(
@@ -207,6 +108,15 @@ def load_data(
     y_path: Path,
     y_label_path: Path,
 ) -> Tuple[pd.DataFrame, str, list, pd.DataFrame]:
+    """
+    Create dataframe of train or test data
+    :param subject_path: path to txt file containing which (human) subject the test is being performed on
+    :param features_path: path to txt file outlining the names of all of the features
+    :param x_path: path to txt file containing feature measurements
+    :param y_path: path to txt file containing targets
+    :param y_label_path: path to txt file that maps the target number into english
+    :return: tuple of (formatted data in DataFrame, target column name, [feature col names], target labels)
+    """
 
     # load feature names
     feature_names = (
@@ -228,7 +138,7 @@ def load_data(
     y = pd.read_csv(y_path, delim_whitespace=True, header=None)
     target = "target"
 
-    # form dict of true names of the targets
+    # load target labels
     target_labels = pd.read_csv(y_label_path, delim_whitespace=True, header=None)
 
     # load subjects (the person that the test is being performed on)
@@ -249,20 +159,35 @@ def define_cv_folds(
     training_frac: float = 0.8,
     random_state: Union[int, None] = None,
 ) -> Tuple[pd.DataFrame, PredefinedSplit]:
+    """
+    Function used to define folds for cross validation or validation set
+    :param df: training data
+    :param grouping_col: column used to ensure that different CV folds do not share any values within this column.
+        Tests were performed on humans, so it's best to keep each test participant in a different CV group.
+    :param cross_val: Bool - whether or not to use cross-validation or separate validation set
+    :param nfolds: number of folds for cross validation (only applicable if cross_val == True)
+    :param training_frac: Fraction of data to use for training. Rest is used for Validation set. Only applicable
+        if cross_val == False.
+    :param random_state: random seed
+    :return: Training data and predefined split for cross validation (Note: adds a column "fold" to df)
+    """
 
     # assign random seed if specified
     if random_state is not None:
         np.random.seed(random_state)
 
-    if cross_val:  # cross-validation
+    # cross validation
+    if cross_val:
         # form dict mapping grouping column (subject id) to their cross-validation group
         folds = dict(
             zip(
                 np.random.permutation(df[grouping_col].unique()),
-                np.repeat(np.arange(nfolds), len(df[grouping_col].unique())),
+                list(np.arange(nfolds)) * len(df[grouping_col].unique()),
             )
         )
-    else:  # separate validation set
+
+    # separate validation set
+    else:
         # form dict matching grouping column (subject id) to training set (-1) or validation set (0)
         folds = dict(
             zip(
@@ -284,11 +209,20 @@ def form_classifiers(
     random_state: Union[int, None] = None,
     limited_params: bool = True,
 ) -> List[Classifier]:
+    """
+    Function to form list of Classifiers
+    :param ps: predefined split for cross-validation
+    :param random_state: random stated
+    :param limited_params: Whether or not to train with limited parameter to increase speed of training
+    :return: list of Classifiers
+    """
 
-    clfs = []
-
+    # setup list of functions that return a single Classifier
     clf_setup_fns = [pca_lr, lr, pca_lda, lda, svm, random_forest]
+    # clf_setup_fns = [pca_lr, lr]
 
+    # build list of classifiers
+    clfs = []
     for fn in clf_setup_fns:
         clfs.append(
             fn(
@@ -302,6 +236,13 @@ def form_classifiers(
 
 
 def pca_lr(ps, random_state, limited_params):
+    """
+    Form classifier - principal component analysis followed by logistic regression
+    :param ps: predefined split for cross-validation or for separate validation set
+    :param random_state: random seed
+    :param limited_params: whether or not to limit the number of parameters to speed up training time
+    :return: Classifier
+    """
 
     # PCA followed by logistic regression
     scaler = StandardScaler()
@@ -343,7 +284,15 @@ def pca_lr(ps, random_state, limited_params):
 
 
 def lr(ps, random_state, limited_params):
+    """
+    Form classifier - logistic regression
+    :param ps: predefined split for cross-validation or for separate validation set
+    :param random_state: random seed
+    :param limited_params: whether or not to limit the number of parameters to speed up training time
+    :return: Classifier
+    """
 
+    # Logistic regression
     logistic = LogisticRegression(
         random_state=random_state,
         max_iter=100,
@@ -378,6 +327,13 @@ def lr(ps, random_state, limited_params):
 
 
 def pca_lda(ps, random_state, limited_params):
+    """
+    Form classifier - principal component analysis followed by linear discriminant analysis
+    :param ps: predefined split for cross-validation or for separate validation set
+    :param random_state: random seed
+    :param limited_params: whether or not to limit the number of parameters to speed up training time
+    :return: Classifier
+    """
 
     # PCA followed by LDA
     scaler = StandardScaler()
@@ -411,6 +367,13 @@ def pca_lda(ps, random_state, limited_params):
 
 
 def lda(ps, random_state, limited_params):
+    """
+    Form classifier - linear discriminant analysis
+    :param ps: predefined split for cross-validation or for separate validation set
+    :param random_state: random seed
+    :param limited_params: whether or not to limit the number of parameters to speed up training time
+    :return: Classifier
+    """
 
     lda = LinearDiscriminantAnalysis(solver="eigen")
     pipe_lda = Pipeline(steps=[("lda", lda)])
@@ -435,7 +398,15 @@ def lda(ps, random_state, limited_params):
 
 
 def svm(ps, random_state, limited_params):
-    svm = SVC()
+    """
+    Form classifier - support vector machine
+    :param ps: predefined split for cross-validation or for separate validation set
+    :param random_state: random seed
+    :param limited_params: whether or not to limit the number of parameters to speed up training time
+    :return: Classifier
+    """
+
+    svm_clf = SVC(random_state=random_state)
 
     if limited_params:
         params = {
@@ -451,7 +422,7 @@ def svm(ps, random_state, limited_params):
         "Support Vector Machine",
         "svm",
         GridSearchCV(
-            estimator=svm,
+            estimator=svm_clf,
             param_grid=params,
             scoring="accuracy",
             cv=ps,
@@ -462,6 +433,13 @@ def svm(ps, random_state, limited_params):
 
 
 def random_forest(ps, random_state, limited_params):
+    """
+    Form classifier - random forest
+    :param ps: predefined split for cross-validation or for separate validation set
+    :param random_state: random seed
+    :param limited_params: whether or not to limit the number of parameters to speed up training time
+    :return: Classifier
+    """
 
     rf = RandomForestClassifier(n_jobs=1, random_state=random_state, n_estimators=100)
 
@@ -498,15 +476,39 @@ def train_classifiers(
     target: str,
     clfs: List[Classifier],
 ) -> List[GridSearchCV]:
+    """
+    Train classifiers on training data
+    :param df_train: training data
+    :param features: feature names
+    :param target: target name
+    :param clfs: list of classifiers
+    :return: list of classifers that have been trained
+    """
 
     for clf in clfs:
         clf.search_obj.fit(df_train[features], df_train[target].ravel())
 
-        print(clf.full_name)
-        print(f"Best Parameters: {clf.search_obj.best_params_}")
-        print(f"Top CV score: {clf.search_obj.best_score_}\n\n")
-
     return clfs
+
+
+def dump_classifiers(
+    clfs: List[Classifier],
+    dump_dir: Path,
+) -> None:
+    """
+    Save classifiers to local machine
+    :param clfs: list of classifers
+    :param dump_dir: where to save the classifiers
+    :return: None (saves classifiers locally to dump_dir
+    """
+
+    dump_dir.mkdir(parents=True, exist_ok=True)
+
+    for clf in clfs:
+        abs_path = dump_dir / f"{clf.short_name}.pkl"
+
+        with open(str(abs_path), "wb") as f:
+            pickle.dump(clf, f)
 
 
 if __name__ == "__main__":
