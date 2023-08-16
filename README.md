@@ -51,13 +51,13 @@ sedentary (sitting, standing, laying) activities along the first principal compo
 *2-d representation of data using PCA*
 
 
-### 5. Methods
+### 3. Methods
 
 The methods summarized below were tuned using 5-fold Cross Validation (CV). The folds for CV were established 
 such that none of the test subjects appear in multiple folds. In this way, we ensure that the CV results most 
 accurately estimate the accuracy that would be achieved on a never-before-seen subject.
 
-#### 5.1 Multinomial logistic regression (MLR) 
+#### 3.1 Multinomial logistic regression (MLR) 
 
 We performed two sets of experiments using MLR. In the first experiment, we used MLR after first 
 reducing the dimensionality of the data set using PCA. In this experiment, the two parameters we tuned were the 
@@ -69,7 +69,7 @@ dimensionality of our data with PCA prior to fitting the model did not improve c
 In the second experiment, we did not perform any dimensionality reduction, and instead only applied L2 
 regularization. 
 
-#### 5.1 Linear discriminant analysis (LDA)
+#### 3.2 Linear discriminant analysis (LDA)
 
 LDA assumes that each class is drawn from a multivariate Gaussian distribution, where the means of each 
 feature are specific to the class, but the covariance matrix is shared across all classes. Because the covariance 
@@ -83,12 +83,12 @@ Additionally, experiments were also performed where the LDA model was
 fit after reducing the dimensionality of the data set using PCA. However, similar to MLR, LDA performs worse 
 when PCA is applied to reduce the data's dimensionality.
 
-#### 5.2 Support vector machine (SVM)
+#### 3.3 Support vector machine (SVM)
 
 SVM aims to find hyperplanes that can best divide data by their labels. A kernel is often applied to 
 transform the data. Here, we used the RBF kernel and experiment with different levels of regularization.
 
-#### 5.3 Random Forest
+#### 3.4 Random Forest
 
 Random forests ensemble multiple decisions trees trained in parallel with bagging. Bagging allows 
 individual trees to be trained on subsets of training data that are randomly sampled with replacement. For any given 
@@ -98,9 +98,9 @@ Bagging, along with the fact that at each split only a random subset of features
 model variance. This tends to make random forests significantly more accurate than decision trees.
 
 
-### 6 Results and discussion
+### 4 Results and discussion
 
-#### 6.1 Model selection 
+#### 4.1 Model selection 
 
 Cross validation accuracies are displayed below:
 
@@ -114,7 +114,7 @@ Cross validation accuracies are displayed below:
 | Random Forest | 91.58% |
 
 
-#### 6.2 Error analysis
+#### 4.2 Error analysis
 
 Throughout all models tested, the main sources of error was confusion within the following subgroups:
  - Walking, walking upstairs, and walking downstairs
@@ -124,14 +124,14 @@ This can be easily visualized in the confusion matrices.
 
 ![confusion_svm](figures/svm_confusion.png)
 
-#### 6.3 Performance on test set
+#### 4.3 Performance on test set
 
 The model that performed best in cross-validation was the Support Vector Machine. For this reason, SVM was chosen as
 the model to use on the test set. Test set accuracy was measured at 96.3% using the the SVM model trained on the entire
 training set.
 
 
-### Conclusion
+### 5. Conclusion
 Given how widespread smart gadgets and smartphones are, predicting human activity with sensors on these devices may 
 have widespread impact and applications. In our experiments, we found that SVM is the best at 
 predicting human activity from the readings of gyroscopes and accelerometers. In addition, almost all models tested 
@@ -139,7 +139,7 @@ performed exceptionally well at separating the 6 classes into 3 groups—(walkin
 downstairs), (sitting, standing), and (laying). However, they are less effective at differentiating classes within 
 each of the three groups, likely because of similar data characteristics within groups.
 
-#### References
+### 6. References
 
 \[1\] Anguita, D., Ghio, A., Oneto, L., Parra Perez, X., & Reyes Ortiz, J. L. (2013). A public domain dataset for 
 human activity recognition using smartphones. In *Proceedings of the 21th international European symposium on 
