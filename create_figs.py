@@ -13,7 +13,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from typing import Union, Tuple, List
 
-from har import Classifier, load_data, define_cv_folds
+from train_clfs import Classifier, load_data, define_cv_folds
 
 # font sizes
 SMALL_SIZE = 12
@@ -65,6 +65,49 @@ def main():
         target,
         target_labels,
     )
+
+    dim_red_accuracy_visual(clfs)
+
+
+def dim_red_accuracy_visual(clfs: List[Classifier]) -> None:
+    """
+    Create graph of accuracy vs. PCA's proportion variance explained
+    :param clfs: list of classifiers
+    :return: None (saves graph locally)
+    """
+
+    # grab PCA-LR classifier
+    pca_lr = None
+    for clf in clfs:
+        if clf.short_name == "pca_lr":
+            pca_lr = clf
+
+    # make df of CV results
+    pca_lr_cv_results = pd.DataFrame(pca_lr.search_obj.cv_results_)
+
+    # take max train and test score for each n_component
+    pca_lr_cv_results = pca_lr_cv_results.groupby(
+        by=["param_pca__n_components"], as_index=False
+    )[["mean_test_score", "mean_train_score"]].max()
+
+    # plot results
+    plt.plot(
+        pca_lr_cv_results.param_pca__n_components, pca_lr_cv_results.mean_test_score
+    )
+    plt.plot(
+        pca_lr_cv_results.param_pca__n_components, pca_lr_cv_results.mean_train_score
+    )
+    plt.scatter(
+        pca_lr_cv_results.param_pca__n_components, pca_lr_cv_results.mean_test_score
+    )
+    plt.scatter(
+        pca_lr_cv_results.param_pca__n_components, pca_lr_cv_results.mean_train_score
+    )
+    plt.xlabel("PCA - Proportion Variance Explained")
+    plt.ylabel("Classification Accuracy")
+    plt.legend(["Validation", "Training"])
+    plt.title("PCA and Logistic Regression", fontsize=BIG_SIZE)
+    plt.savefig("figures/pca_lr_ncomp")
 
 
 def twod_pca_visual(
@@ -186,7 +229,7 @@ def twod_pca_visual(
 def set_fonts():
     """
     setup default fonts for matplotlib graphs
-    :return:
+    :return: None
     """
     plt.rc("font", size=SMALL_SIZE)  # controls default text sizes
     plt.rc("axes", titlesize=SMALL_SIZE)  # fontsize of the axes title
@@ -271,7 +314,7 @@ def add_precision_and_recall_to_matrix(
     Add precision and recall as last rows and columns of confusion matrix
     :param confusion: confusion matrix
     :param class_labels: class labels for target
-    :return:
+    :return: confusion matrix where last rows and columns show precision and recall
     """
     df_confusion = pd.DataFrame(confusion, columns=class_labels, index=class_labels)
 
