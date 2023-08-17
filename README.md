@@ -1,4 +1,4 @@
-# Human Activity Recognition using Smartphone Sensors
+# Human Activity Recognition
 
 **Andrew Berson and Tayden Li**
 
@@ -12,7 +12,7 @@ HAR has many use cases related to both health and fitness. Using HAR, people can
 activities and better understand their physical health, such as the amount of exercise they complete each day. 
 Being able to classify activities from sensors worn 
 by subjects can also help alert healthcare workers and/or family members if an individual falls. 
-Given the wide proliferation of smart-watches and smartphones, HAR can benefit many individuals.
+Given the wide proliferation of smartwatches and smartphones, HAR can benefit many individuals.
 
 In this project, we use statistical and machine learning approaches to predict human activity 
 from data recorded by smartphones. We then compare the results from different models and conduct error analysis.
@@ -23,9 +23,16 @@ from data recorded by smartphones. We then compare the results from different mo
 
 The data set used in this paper was generated at the University of Genoa by Anguita et al. (2013) \[1\], and the
 data set can be downloaded [here](https://archive.ics.uci.edu/dataset/240/human+activity+recognition+using+smartphones). 
-In the experiment, thirty volunteers aged 19-48 wore smartphones (Samsung Galaxy SII) on their waists. They 
-then performed six activities: walking, walking upstairs, walking downstairs, sitting, standing, and laying. 
-The embedded accelerometer and gyroscope recorded subjects' triaxial linear acceleration and angular speed at 
+In the experiment, 30 volunteers aged 19-48 wore smartphones (Samsung Galaxy SII) strapped to their waists. They 
+then performed six activities: 
+1. Walking
+2. Walking upstairs
+3. Walking downstairs
+4. Sitting
+5. Standing
+6. Laying
+ 
+The embedded accelerometer and gyroscope recorded the subjects' triaxial linear acceleration and angular speed at 
 a rate of 50Hz. 70% of the subjects were randomly selected to be in the training set and the other 30% were 
 selected to be in the test set.
 
@@ -135,9 +142,12 @@ training set.
 Given how widespread smart gadgets and smartphones are, predicting human activity with sensors on these devices may 
 have widespread impact and applications. In our experiments, we found that SVM is the best at 
 predicting human activity from the readings of gyroscopes and accelerometers. In addition, almost all models tested 
-performed exceptionally well at separating the 6 classes into 3 groups—(walking, walking upstairs, walking 
-downstairs), (sitting, standing), and (laying). However, they are less effective at differentiating classes within 
-each of the three groups, likely because of similar data characteristics within groups.
+performed exceptionally well at separating the six classes into three distinct groups. However, all models contained 
+some level of intra-group misclassification. The three groups are:
+1. Walking, walking upstairs, and walking downstairs
+2. Sitting and standing
+3. Laying
+
 
 ### 6. References
 
